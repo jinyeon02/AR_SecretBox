@@ -22,7 +22,8 @@ android {
             cmake {
                 arguments += listOf(
                     "-DANDROID_STL=c++_shared",
-                    "-DANDROID_TOOLCHAIN=clang"
+                    "-DANDROID_TOOLCHAIN=clang",
+                    "-DANDROID_LD_FLAGS=-Wl,--enable-page-size-16k"
                 )
             }
         }
@@ -67,7 +68,7 @@ dependencies {
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
-    implementation("com.google.ar:core:1.43.0")
+    implementation("com.google.ar:core:1.51.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 }
 

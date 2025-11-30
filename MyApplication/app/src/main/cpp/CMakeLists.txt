@@ -12,9 +12,16 @@ include_directories(${CMAKE_SOURCE_DIR}/src/main/arcore/include)
 
 # ARCore .so 임포트
 add_library(arcore SHARED IMPORTED)
-set_target_properties(arcore PROPERTIES
-        IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/arcore/libs/arm64-v8a/libarcore_sdk_c.so
-)
+
+if ("${ANDROID_ABI}" STREQUAL "arm64-v8a")
+    set_target_properties(arcore PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/arcore/libs/arm64-v8a/libarcore_sdk_c.so
+    )
+elseif ("${ANDROID_ABI}" STREQUAL "x86_64")
+    set_target_properties(arcore PROPERTIES
+            IMPORTED_LOCATION ${CMAKE_CURRENT_SOURCE_DIR}/arcore/libs/x86_64/libarcore_sdk_c.so
+    )
+endif()
 
 # hello_ar_native 소스들
 add_library(hello_ar_native SHARED
