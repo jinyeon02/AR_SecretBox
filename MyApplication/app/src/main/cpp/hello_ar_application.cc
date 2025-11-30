@@ -50,9 +50,19 @@ void SetColor(float r, float g, float b, float a, float* color4f) {
 
 }  // namespace
 
+/**
+ * Constructor for HelloArApplication.
+ * Initializes the AR application with the Android AssetManager for loading resources.
+ * 
+ * @param asset_manager Android AssetManager for loading 3D models and textures
+ */
 HelloArApplication::HelloArApplication(AAssetManager* asset_manager)
     : asset_manager_(asset_manager) {}
 
+/**
+ * Destructor for HelloArApplication.
+ * Cleans up ARCore session and frame resources.
+ */
 HelloArApplication::~HelloArApplication() {
   if (ar_session_ != nullptr) {
     ArSession_destroy(ar_session_);
@@ -60,6 +70,10 @@ HelloArApplication::~HelloArApplication() {
   }
 }
 
+/**
+ * Pauses the AR session.
+ * Should be called when the activity is paused to save resources.
+ */
 void HelloArApplication::OnPause() {
   LOGI("OnPause()");
   if (ar_session_ != nullptr) {
@@ -67,20 +81,26 @@ void HelloArApplication::OnPause() {
   }
 }
 
+/**
+ * Resumes the AR session.
+ * Creates a new AR session if one doesn't exist, or resumes an existing one.
+ * Handles ARCore installation and session configuration.
+ * 
+ * @param env JNI environment
+ * @param context Android application context
+ * @param activity Android activity instance
+ */
 void HelloArApplication::OnResume(JNIEnv* env, void* context, void* activity) {
   LOGI("OnResume()");
 
   if (ar_session_ == nullptr) {
     ArInstallStatus install_status;
-    // If install was not yet requested, that means that we are resuming the
-    // activity first time because of explicit user interaction (such as
-    // launching the application)
+    // If install was not yet requested, this is the first time resuming
+    // (e.g., user just launched the app)
     bool user_requested_install = !install_requested_;
 
-    // === ATTENTION!  ATTENTION!  ATTENTION! ===
-    // This method can and will fail in user-facing situations.  Your
-    // application must handle these cases at least somewhat gracefully.  See
-    // HelloAR Java sample code for reasonable behavior.
+    // Request ARCore installation if needed
+    // NOTE: This can fail in user-facing situations - handle gracefully
     CHECKANDTHROW(
         ArCoreApk_requestInstall(env, activity, user_requested_install,
                                  &install_status) == AR_SUCCESS,
@@ -88,63 +108,114 @@ void HelloArApplication::OnResume(JNIEnv* env, void* context, void* activity) {
 
     switch (install_status) {
       case AR_INSTALL_STATUS_INSTALLED:
+        // ARCore is installed and ready
         break;
       case AR_INSTALL_STATUS_INSTALL_REQUESTED:
+        // Installation was requested - will resume after installation
         install_requested_ = true;
         return;
     }
 
-    // === ATTENTION!  ATTENTION!  ATTENTION! ===
-    // This method can and will fail in user-facing situations.  Your
-    // application must handle these cases at least somewhat gracefully.  See
-    // HelloAR Java sample code for reasonable behavior.
+    // Create AR session
+    // NOTE: This can fail - handle gracefully
     CHECKANDTHROW(ArSession_create(env, context, &ar_session_) == AR_SUCCESS,
                   env, "Failed to create AR session.");
 
+    // Configure session with depth and instant placement settings
     ConfigureSession();
+    
+    // Create AR frame for capturing camera data
     ArFrame_create(ar_session_, &ar_frame_);
 
+    // Set initial display geometry
     ArSession_setDisplayGeometry(ar_session_, display_rotation_, width_,
                                  height_);
   }
 
+  // Resume the AR session
   const ArStatus status = ArSession_resume(ar_session_);
   CHECKANDTHROW(status == AR_SUCCESS, env, "Failed to resume AR session.");
 }
 
+/**
+ * Called when the OpenGL surface is created.
+ * Initializes all OpenGL resources including:
+ * - Depth texture for occlusion
+ * - Background renderer (camera feed)
+ * - Point cloud renderer
+ * - 3D object renderer (Andy model)
+ * - Plane renderer
+ */
 void HelloArApplication::OnSurfaceCreated() {
   LOGI("OnSurfaceCreated()");
 
+  // Create depth texture for depth-based occlusion
   depth_texture_.CreateOnGlThread();
+  
+  // Initialize background renderer (camera feed)
   background_renderer_.InitializeGlContent(asset_manager_,
                                            depth_texture_.GetTextureId());
+  
+  // Initialize point cloud renderer (for debugging/visualization)
   point_cloud_renderer_.InitializeGlContent(asset_manager_);
+  
+  // Initialize 3D object renderer with Andy model
   andy_renderer_.InitializeGlContent(asset_manager_, "models/andy.obj",
                                      "models/andy.png");
+  
+  // Set depth texture for occlusion
   andy_renderer_.SetDepthTexture(depth_texture_.GetTextureId(),
                                  depth_texture_.GetWidth(),
                                  depth_texture_.GetHeight());
+  
+  // Initialize plane renderer (for visualizing detected planes)
   plane_renderer_.InitializeGlContent(asset_manager_);
 }
 
+/**
+ * Called when the display geometry changes (rotation, size, etc.).
+ * Updates the OpenGL viewport and AR session display geometry.
+ * 
+ * @param display_rotation Current display rotation (0, 90, 180, 270 degrees)
+ * @param width New viewport width in pixels
+ * @param height New viewport height in pixels
+ */
 void HelloArApplication::OnDisplayGeometryChanged(int display_rotation,
                                                   int width, int height) {
   LOGI("OnSurfaceChanged(%d, %d)", width, height);
+  
+  // Update OpenGL viewport
   glViewport(0, 0, width, height);
+  
+  // Store new dimensions and rotation
   display_rotation_ = display_rotation;
   width_ = width;
   height_ = height;
+  
+  // Update AR session with new display geometry
   if (ar_session_ != nullptr) {
     ArSession_setDisplayGeometry(ar_session_, display_rotation, width, height);
   }
 }
 
+/**
+ * Main rendering loop called on every frame.
+ * This method handles all AR rendering including:
+ * - Camera background
+ * - Detected planes
+ * - AR objects (Andy models)
+ * - Point cloud visualization
+ * 
+ * @param depthColorVisualizationEnabled If true, shows depth map as color overlay
+ * @param useDepthForOcclusion If true, uses depth data for realistic object occlusion
+ */
 void HelloArApplication::OnDrawFrame(bool depthColorVisualizationEnabled,
                                      bool useDepthForOcclusion) {
-  // Render the scene.
+  // Clear the screen with a light gray background
   glClearColor(0.9f, 0.9f, 0.9f, 1.0f);
   glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
 
+  // Enable face culling and depth testing for 3D rendering
   glEnable(GL_CULL_FACE);
   glEnable(GL_DEPTH_TEST);
 
@@ -293,6 +364,10 @@ void HelloArApplication::OnDrawFrame(bool depthColorVisualizationEnabled,
   }
 }
 
+/**
+ * Checks if the device supports depth sensing.
+ * @return True if depth sensing is supported, false otherwise
+ */
 bool HelloArApplication::IsDepthSupported() {
   int32_t is_supported = 0;
   ArSession_isDepthModeSupported(ar_session_, AR_DEPTH_MODE_AUTOMATIC,
@@ -300,17 +375,24 @@ bool HelloArApplication::IsDepthSupported() {
   return is_supported;
 }
 
+/**
+ * Configures the AR session with depth and instant placement settings.
+ * This is called when the session is created or when settings change.
+ */
 void HelloArApplication::ConfigureSession() {
   const bool is_depth_supported = IsDepthSupported();
 
   ArConfig* ar_config = nullptr;
   ArConfig_create(ar_session_, &ar_config);
+  
+  // Configure depth mode
   if (is_depth_supported) {
     ArConfig_setDepthMode(ar_session_, ar_config, AR_DEPTH_MODE_AUTOMATIC);
   } else {
     ArConfig_setDepthMode(ar_session_, ar_config, AR_DEPTH_MODE_DISABLED);
   }
 
+  // Configure instant placement mode
   if (is_instant_placement_enabled_) {
     ArConfig_setInstantPlacementMode(ar_session_, ar_config,
                                      AR_INSTANT_PLACEMENT_MODE_LOCAL_Y_UP);
@@ -318,11 +400,18 @@ void HelloArApplication::ConfigureSession() {
     ArConfig_setInstantPlacementMode(ar_session_, ar_config,
                                      AR_INSTANT_PLACEMENT_MODE_DISABLED);
   }
+  
   CHECK(ar_config);
   CHECK(ArSession_configure(ar_session_, ar_config) == AR_SUCCESS);
   ArConfig_destroy(ar_config);
 }
 
+/**
+ * Updates AR session settings.
+ * Reconfigures the session with new settings.
+ * 
+ * @param is_instant_placement_enabled If true, enables instant placement mode
+ */
 void HelloArApplication::OnSettingsChange(bool is_instant_placement_enabled) {
   is_instant_placement_enabled_ = is_instant_placement_enabled;
 
@@ -331,133 +420,203 @@ void HelloArApplication::OnSettingsChange(bool is_instant_placement_enabled) {
   }
 }
 
+/**
+ * Handles touch events on the AR screen.
+ * This method ONLY processes touches on existing AR objects (changes their color).
+ * It does NOT create new objects - that is handled by SpawnObjectAtScreenCenter().
+ * 
+ * IMPORTANT: This method will NOT create new anchors. It only checks if an existing
+ * anchor was touched by comparing hit test results with the anchors_ list.
+ * 
+ * @param x Screen x coordinate in pixels where the user touched
+ * @param y Screen y coordinate in pixels where the user touched
+ */
 void HelloArApplication::OnTouched(float x, float y) {
-  if (ar_frame_ != nullptr && ar_session_ != nullptr) {
-    ArHitResultList* hit_result_list = nullptr;
-    ArHitResultList_create(ar_session_, &hit_result_list);
-    CHECK(hit_result_list);
-    if (is_instant_placement_enabled_) {
-      ArFrame_hitTestInstantPlacement(ar_session_, ar_frame_, x, y,
-                                      kApproximateDistanceMeters,
-                                      hit_result_list);
-    } else {
-      ArFrame_hitTest(ar_session_, ar_frame_, x, y, hit_result_list);
+  if (ar_frame_ == nullptr || ar_session_ == nullptr) {
+    return;
+  }
+
+  // If no objects exist, there's nothing to touch
+  if (anchors_.empty()) {
+    return;
+  }
+
+  // Perform hit test at the touch location
+  ArHitResultList* hit_result_list = nullptr;
+  ArHitResultList_create(ar_session_, &hit_result_list);
+  CHECK(hit_result_list);
+
+  ArFrame_hitTest(ar_session_, ar_frame_, x, y, hit_result_list);
+
+  int32_t hit_list_size = 0;
+  ArHitResultList_getSize(ar_session_, hit_result_list, &hit_list_size);
+
+  // Check if any existing objects were touched
+  // We compare hit positions with existing anchor positions to detect touches
+  for (int32_t i = 0; i < hit_list_size; ++i) {
+    ArHitResult* ar_hit = nullptr;
+    ArHitResult_create(ar_session_, &ar_hit);
+    ArHitResultList_getItem(ar_session_, hit_result_list, i, ar_hit);
+
+    if (ar_hit == nullptr) {
+      continue;
     }
 
-    int32_t hit_result_list_size = 0;
-    ArHitResultList_getSize(ar_session_, hit_result_list,
-                            &hit_result_list_size);
+    // Get the hit pose to compare with existing anchor positions
+    util::ScopedArPose hit_pose(ar_session_);
+    ArHitResult_getHitPose(ar_session_, ar_hit, hit_pose.GetArPose());
+    
+    float hit_pose_raw[7] = {0.f};
+    ArPose_getPoseRaw(ar_session_, hit_pose.GetArPose(), hit_pose_raw);
+    glm::vec3 hit_position(hit_pose_raw[4], hit_pose_raw[5], hit_pose_raw[6]);
 
-    // The hitTest method sorts the resulting list by distance from the camera,
-    // increasing.  The first hit result will usually be the most relevant when
-    // responding to user input.
-
-    ArHitResult* ar_hit_result = nullptr;
-    for (int32_t i = 0; i < hit_result_list_size; ++i) {
-      ArHitResult* ar_hit = nullptr;
-      ArHitResult_create(ar_session_, &ar_hit);
-      ArHitResultList_getItem(ar_session_, hit_result_list, i, ar_hit);
-
-      if (ar_hit == nullptr) {
-        LOGE("HelloArApplication::OnTouched ArHitResultList_getItem error");
-        return;
+    // Check if this hit is close to any existing anchor
+    for (auto& colored_anchor : anchors_) {
+      ArTrackingState tracking_state = AR_TRACKING_STATE_STOPPED;
+      ArAnchor_getTrackingState(ar_session_, colored_anchor.anchor, &tracking_state);
+      
+      if (tracking_state != AR_TRACKING_STATE_TRACKING) {
+        continue;
       }
 
-      ArTrackable* ar_trackable = nullptr;
-      ArHitResult_acquireTrackable(ar_session_, ar_hit, &ar_trackable);
-      ArTrackableType ar_trackable_type = AR_TRACKABLE_NOT_VALID;
-      ArTrackable_getType(ar_session_, ar_trackable, &ar_trackable_type);
-      // Creates an anchor if a plane or an oriented point was hit.
-      if (AR_TRACKABLE_PLANE == ar_trackable_type) {
-        ArPose* hit_pose = nullptr;
-        ArPose_create(ar_session_, nullptr, &hit_pose);
-        ArHitResult_getHitPose(ar_session_, ar_hit, hit_pose);
-        int32_t in_polygon = 0;
-        ArPlane* ar_plane = ArAsPlane(ar_trackable);
-        ArPlane_isPoseInPolygon(ar_session_, ar_plane, hit_pose, &in_polygon);
+      // Get anchor pose
+      util::ScopedArPose anchor_pose(ar_session_);
+      ArAnchor_getPose(ar_session_, colored_anchor.anchor, anchor_pose.GetArPose());
+      
+      float anchor_pose_raw[7] = {0.f};
+      ArPose_getPoseRaw(ar_session_, anchor_pose.GetArPose(), anchor_pose_raw);
+      glm::vec3 anchor_position(anchor_pose_raw[4], anchor_pose_raw[5], anchor_pose_raw[6]);
 
-        // Use hit pose and camera pose to check if hittest is from the
-        // back of the plane, if it is, no need to create the anchor.
-        ArPose* camera_pose = nullptr;
-        ArPose_create(ar_session_, nullptr, &camera_pose);
-        ArCamera* ar_camera;
-        ArFrame_acquireCamera(ar_session_, ar_frame_, &ar_camera);
-        ArCamera_getPose(ar_session_, ar_camera, camera_pose);
-        ArCamera_release(ar_camera);
-        float normal_distance_to_plane = util::CalculateDistanceToPlane(
-            *ar_session_, *hit_pose, *camera_pose);
+      // Check if hit position is close to anchor position (within 0.1 meters)
+      float distance = glm::distance(hit_position, anchor_position);
+      if (distance < 0.1f) {
+        // Object was touched - increment touch count and change color
+        colored_anchor.touch_count++;
 
-        ArPose_destroy(hit_pose);
-        ArPose_destroy(camera_pose);
+        // Toggle color between red and green on each touch
+        if (colored_anchor.touch_count % 2 != 0) {
+          // Odd touches: red
+          SetColor(255.0f, 0.0f, 0.0f, 255.0f, colored_anchor.color);
+        } else {
+          // Even touches: green
+          SetColor(0.0f, 255.0f, 0.0f, 255.0f, colored_anchor.color);
+        }
 
-        if (!in_polygon || normal_distance_to_plane < 0) {
+        ArHitResult_destroy(ar_hit);
+        ArHitResultList_destroy(hit_result_list);
+        return; // Object was touched, no need to continue
+      }
+    }
+    ArHitResult_destroy(ar_hit);
+  }
+
+  // No existing object was touched - clean up and return
+  // IMPORTANT: We do NOT create new objects here - that's done by SpawnObjectAtScreenCenter()
+  ArHitResultList_destroy(hit_result_list);
+}
+
+/**
+ * Automatically spawns a new AR object at the center of the screen.
+ * This method is called after a delay (e.g., 10 seconds) to automatically
+ * create an object without user interaction.
+ * The object is placed using hit testing at the screen center.
+ * 
+ * This method only creates an object if no objects currently exist (anchors_.empty()).
+ * This ensures that only the initial object is created automatically.
+ */
+void HelloArApplication::SpawnObjectAtScreenCenter() {
+  if (ar_frame_ == nullptr || ar_session_ == nullptr) {
+    return;
+  }
+
+  // Only create object if no objects exist yet
+  // This ensures automatic spawning only happens once for the initial object
+  if (!anchors_.empty()) {
+    return;
+  }
+
+  // Check if we've reached the maximum number of objects (safety check)
+  if (anchors_.size() >= kMaxNumberOfAndroidsToRender) {
+    return;
+  }
+
+  // Perform hit test at screen center
+  float center_x = width_ / 2.0f;
+  float center_y = height_ / 2.0f;
+
+  ArHitResultList* hit_result_list = nullptr;
+  ArHitResultList_create(ar_session_, &hit_result_list);
+  CHECK(hit_result_list);
+
+  ArFrame_hitTest(ar_session_, ar_frame_, center_x, center_y, hit_result_list);
+
+  int32_t hit_list_size = 0;
+  ArHitResultList_getSize(ar_session_, hit_result_list, &hit_list_size);
+
+  // Find the first valid hit result (prefer planes, then instant placement)
+  for (int32_t i = 0; i < hit_list_size; ++i) {
+    ArHitResult* ar_hit = nullptr;
+    ArHitResult_create(ar_session_, &ar_hit);
+    ArHitResultList_getItem(ar_session_, hit_result_list, i, ar_hit);
+
+    if (ar_hit == nullptr) {
+      continue;
+    }
+
+    // Check what type of trackable was hit
+    ArTrackable* ar_trackable = nullptr;
+    ArHitResult_acquireTrackable(ar_session_, ar_hit, &ar_trackable);
+    ArTrackableType trackable_type = AR_TRACKABLE_NOT_VALID;
+    ArTrackable_getType(ar_session_, ar_trackable, &trackable_type);
+
+    // Only create anchor on planes or instant placement points
+    if (trackable_type == AR_TRACKABLE_PLANE ||
+        trackable_type == AR_TRACKABLE_INSTANT_PLACEMENT_POINT) {
+      ArTrackingState tracking_state = AR_TRACKING_STATE_STOPPED;
+      ArTrackable_getTrackingState(ar_session_, ar_trackable, &tracking_state);
+
+      if (tracking_state == AR_TRACKING_STATE_TRACKING) {
+        // Create a new anchor at this hit location
+        ArAnchor* anchor = nullptr;
+        if (ArHitResult_acquireNewAnchor(ar_session_, ar_hit, &anchor) != AR_SUCCESS) {
+          ArTrackable_release(ar_trackable);
+          ArHitResult_destroy(ar_hit);
           continue;
         }
 
-        ar_hit_result = ar_hit;
-        break;
-      } else if (AR_TRACKABLE_POINT == ar_trackable_type) {
-        ArPoint* ar_point = ArAsPoint(ar_trackable);
-        ArPointOrientationMode mode;
-        ArPoint_getOrientationMode(ar_session_, ar_point, &mode);
-        if (AR_POINT_ORIENTATION_ESTIMATED_SURFACE_NORMAL == mode) {
-          ar_hit_result = ar_hit;
-          break;
-        }
-      } else if (AR_TRACKABLE_INSTANT_PLACEMENT_POINT == ar_trackable_type) {
-        ar_hit_result = ar_hit;
-      } else if (AR_TRACKABLE_DEPTH_POINT == ar_trackable_type) {
-        // ArDepthPoints are only returned if ArConfig_setDepthMode() is called
-        // with AR_DEPTH_MODE_AUTOMATIC.
-        ar_hit_result = ar_hit;
+        // Create a new colored anchor entry
+        ColoredAnchor colored_anchor;
+        colored_anchor.anchor = anchor;
+        colored_anchor.trackable = ar_trackable;
+        colored_anchor.touch_count = 0;
+        UpdateAnchorColor(&colored_anchor);
+
+        anchors_.push_back(colored_anchor);
+
+        ArTrackable_release(ar_trackable);
+        ArHitResult_destroy(ar_hit);
+        ArHitResultList_destroy(hit_result_list);
+        return; // Successfully created object
       }
     }
 
-    if (ar_hit_result) {
-      // Note that the application is responsible for releasing the anchor
-      // pointer after using it. Call ArAnchor_release(anchor) to release.
-      ArAnchor* anchor = nullptr;
-      if (ArHitResult_acquireNewAnchor(ar_session_, ar_hit_result, &anchor) !=
-          AR_SUCCESS) {
-        LOGE(
-            "HelloArApplication::OnTouched ArHitResult_acquireNewAnchor error");
-        return;
-      }
-
-      ArTrackingState tracking_state = AR_TRACKING_STATE_STOPPED;
-      ArAnchor_getTrackingState(ar_session_, anchor, &tracking_state);
-      if (tracking_state != AR_TRACKING_STATE_TRACKING) {
-        ArAnchor_release(anchor);
-        return;
-      }
-
-      if (anchors_.size() >= kMaxNumberOfAndroidsToRender) {
-        ArAnchor_release(anchors_[0].anchor);
-        ArTrackable_release(anchors_[0].trackable);
-        anchors_.erase(anchors_.begin());
-      }
-
-      ArTrackable* ar_trackable = nullptr;
-      ArHitResult_acquireTrackable(ar_session_, ar_hit_result, &ar_trackable);
-      // Assign a color to the object for rendering based on the trackable type
-      // this anchor attached to. For AR_TRACKABLE_POINT, it's blue color, and
-      // for AR_TRACKABLE_PLANE, it's green color.
-      ColoredAnchor colored_anchor;
-      colored_anchor.anchor = anchor;
-      colored_anchor.trackable = ar_trackable;
-
-      UpdateAnchorColor(&colored_anchor);
-      anchors_.push_back(colored_anchor);
-
-      ArHitResult_destroy(ar_hit_result);
-      ar_hit_result = nullptr;
-
-      ArHitResultList_destroy(hit_result_list);
-      hit_result_list = nullptr;
+    if (ar_trackable != nullptr) {
+      ArTrackable_release(ar_trackable);
     }
+    ArHitResult_destroy(ar_hit);
   }
+
+  // No valid surface found for object placement
+  ArHitResultList_destroy(hit_result_list);
 }
 
+/**
+ * Updates the color of an anchor based on its trackable type.
+ * Different trackable types (planes, points, etc.) get different colors
+ * to help users understand what type of surface the object is placed on.
+ * 
+ * @param colored_anchor Pointer to the colored anchor whose color should be updated
+ */
 void HelloArApplication::UpdateAnchorColor(ColoredAnchor* colored_anchor) {
   ArTrackable* ar_trackable = colored_anchor->trackable;
   float* color = colored_anchor->color;
@@ -465,17 +624,21 @@ void HelloArApplication::UpdateAnchorColor(ColoredAnchor* colored_anchor) {
   ArTrackableType ar_trackable_type;
   ArTrackable_getType(ar_session_, ar_trackable, &ar_trackable_type);
 
+  // Set color based on trackable type
   if (ar_trackable_type == AR_TRACKABLE_POINT) {
+    // Blue for feature points
     SetColor(66.0f, 133.0f, 244.0f, 255.0f, color);
     return;
   }
 
   if (ar_trackable_type == AR_TRACKABLE_PLANE) {
+    // Green for detected planes
     SetColor(139.0f, 195.0f, 74.0f, 255.0f, color);
     return;
   }
 
   if (ar_trackable_type == AR_TRACKABLE_DEPTH_POINT) {
+    // Red for depth points
     SetColor(199.0f, 8.0f, 65.0f, 255.0f, color);
     return;
   }
@@ -486,25 +649,34 @@ void HelloArApplication::UpdateAnchorColor(ColoredAnchor* colored_anchor) {
     ArInstantPlacementPointTrackingMethod tracking_method;
     ArInstantPlacementPoint_getTrackingMethod(
         ar_session_, ar_instant_placement_point, &tracking_method);
+    
     if (tracking_method ==
         AR_INSTANT_PLACEMENT_POINT_TRACKING_METHOD_FULL_TRACKING) {
+      // Yellow for fully tracked instant placement
       SetColor(255.0f, 255.0f, 137.0f, 255.0f, color);
       return;
     } else if (
         tracking_method ==
-        AR_INSTANT_PLACEMENT_POINT_TRACKING_METHOD_SCREENSPACE_WITH_APPROXIMATE_DISTANCE) {  // NOLINT
+        AR_INSTANT_PLACEMENT_POINT_TRACKING_METHOD_SCREENSPACE_WITH_APPROXIMATE_DISTANCE) {
+      // White for approximate instant placement
       SetColor(255.0f, 255.0f, 255.0f, 255.0f, color);
       return;
     }
   }
 
-  // Fallback color
+  // Fallback: transparent (should not happen in normal operation)
   SetColor(0.0f, 0.0f, 0.0f, 0.0f, color);
 }
 
-// This method returns a transformation matrix that when applied to screen space
-// uvs makes them match correctly with the quad texture coords used to render
-// the camera feed. It takes into account device orientation.
+/**
+ * Returns a transformation matrix that converts screen space UVs to texture coordinates.
+ * This matrix accounts for device orientation and ensures the camera feed texture
+ * is correctly mapped to the screen.
+ * 
+ * @param session ARCore session
+ * @param frame Current AR frame
+ * @return 3x3 transformation matrix for UV coordinates
+ */
 glm::mat3 HelloArApplication::GetTextureTransformMatrix(
     const ArSession* session, const ArFrame* frame) {
   float frameTransform[6];

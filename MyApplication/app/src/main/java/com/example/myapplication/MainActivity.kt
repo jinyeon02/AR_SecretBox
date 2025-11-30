@@ -1,78 +1,123 @@
-package com.example.myapplication;
+package com.example.myapplication
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.TextView
-import com.example.myapplication.databinding.ActivityMainBinding
-import com.google.ar.core.ArCoreApk
 import android.view.View
 import android.Manifest
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.core.app.ActivityCompat
 import android.content.Intent
-import com.example.myapplication.HelloArActivity
-private const val CAMERA_PERMISSION_CODE = 100
+import android.widget.Toast
+import com.example.myapplication.databinding.ActivityMainBinding
+import com.google.ar.core.ArCoreApk
+
+/**
+ * Main entry point of the AR application.
+ * 
+ * This activity:
+ * - Checks for ARCore support
+ * - Requests camera permission
+ * - Provides a button to launch the AR experience
+ */
 class MainActivity : AppCompatActivity() {
+
+    companion object {
+        private const val CAMERA_PERMISSION_CODE = 100
+    }
 
     private lateinit var binding: ActivityMainBinding
 
+    /**
+     * Launches the AR screen (HelloArActivity).
+     */
     private fun launchArScreen() {
-        // AR 뷰를 렌더링할 Activity로 전환합니다.
-        // 여기서는 Google ARCore 샘플에서 흔히 사용하는 HelloArActivity를 가정합니다.
         val intent = Intent(this, HelloArActivity::class.java)
         startActivity(intent)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        maybeEnableArButton() // 🛑 ERROR: binding이 초기화되기 전에 arButton을 사용하려고 시도
+
+        // Initialize View Binding
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Example of a call to a native method
-        binding.sampleText.text = stringFromJNI()
-        maybeEnableArButton()
+        // Set up AR button click listener
         binding.arButton.setOnClickListener {
-            launchArScreen() // AR 화면으로 이동하거나 세션을 시작하는 함수
+            launchArScreen()
         }
     }
 
-    fun maybeEnableArButton() {
+    /**
+     * Checks ARCore availability and enables/disables the AR button accordingly.
+     * This method is called after camera permission is granted.
+     */
+    private fun maybeEnableArButton() {
+        if (!::binding.isInitialized) return
+
+        // Check ARCore availability asynchronously
         ArCoreApk.getInstance().checkAvailabilityAsync(this) { availability ->
             if (availability.isSupported) {
+                // Device supports ARCore - enable the button
                 binding.arButton.visibility = View.VISIBLE
                 binding.arButton.isEnabled = true
-            } else { // The device is unsupported or unknown.
+            } else {
+                // Device does not support ARCore - hide the button
                 binding.arButton.visibility = View.INVISIBLE
                 binding.arButton.isEnabled = false
             }
         }
     }
+
     override fun onResume() {
         super.onResume()
 
-        // 1. 카메라 권한 확인 및 요청 (필수)
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), CAMERA_PERMISSION_CODE)
+        // Check camera permission
+        if (ContextCompat.checkSelfPermission(
+                this,
+                Manifest.permission.CAMERA
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            // Request permission if not granted
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.CAMERA),
+                CAMERA_PERMISSION_CODE
+            )
             return
         }
 
-        // 2. ARCore 가용성 재확인 (버튼 활성화 로직)
-        maybeEnableArButton()
+        // Permission granted - check ARCore availability and enable button
+        if (::binding.isInitialized) {
+            maybeEnableArButton()
+        }
     }
 
-
     /**
-     * A native method that is implemented by the 'myapplication' native library,
-     * which is packaged with this application.
+     * Handles the result of permission requests.
      */
-    external fun stringFromJNI(): String
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        results: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, results)
 
-    companion object {
-        // Used to load the 'myapplication' library on application startup.
-        init {
-            System.loadLibrary("myapplication")
+        if (requestCode == CAMERA_PERMISSION_CODE) {
+            if (results.isNotEmpty() && results[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted - enable AR button
+                if (::binding.isInitialized) {
+                    maybeEnableArButton()
+                }
+            } else {
+                // Permission denied - show message
+                Toast.makeText(
+                    this,
+                    "AR 기능을 사용하려면 카메라 권한이 필요합니다.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 }

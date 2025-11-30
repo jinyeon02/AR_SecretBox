@@ -38,7 +38,16 @@
 
 namespace hello_ar {
 
-// HelloArApplication handles all application logics.
+/**
+ * Main AR application class that handles all ARCore logic and rendering.
+ * 
+ * This class manages:
+ * - AR session lifecycle
+ * - Object placement and tracking
+ * - Touch event handling
+ * - OpenGL rendering
+ * - Plane detection and visualization
+ */
 class HelloArApplication {
  public:
   // Constructor and deconstructor.
@@ -68,9 +77,16 @@ class HelloArApplication {
                    bool useDepthForOcclusion);
 
   // OnTouched is called on the OpenGL thread after the user touches the screen.
+  // This method only handles touch events on existing objects (changes color).
+  // It does not create new objects.
   // @param x: x position on the screen (pixels).
   // @param y: y position on the screen (pixels).
   void OnTouched(float x, float y);
+
+  // SpawnObjectAtScreenCenter is called to automatically create a new AR object
+  // at the center of the screen. This is used for automatic object spawning
+  // after a delay, not for touch-based creation.
+  void SpawnObjectAtScreenCenter();
 
   // Returns true if any planes have been detected.  Used for hiding the
   // "searching for planes" snackbar.
@@ -96,11 +112,15 @@ class HelloArApplication {
 
   AAssetManager* const asset_manager_;
 
-  // The anchors at which we are drawing android models using given colors.
+  /**
+   * Structure representing an AR anchor with associated rendering properties.
+   * Each anchor corresponds to one 3D object placed in the AR scene.
+   */
   struct ColoredAnchor {
-    ArAnchor* anchor;
-    ArTrackable* trackable;
-    float color[4];
+    ArAnchor* anchor = nullptr;        // ARCore anchor for tracking
+    ArTrackable* trackable = nullptr;  // Trackable surface (plane, point, etc.)
+    float color[4];                    // RGBA color for rendering
+    int touch_count = 0;                // Number of times this object has been touched
   };
 
   std::vector<ColoredAnchor> anchors_;

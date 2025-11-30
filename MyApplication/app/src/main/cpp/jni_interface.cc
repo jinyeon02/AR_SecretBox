@@ -102,6 +102,11 @@ JNI_METHOD(void, onTouched)
   native(native_application)->OnTouched(x, y);
 }
 
+JNI_METHOD(void, spawnObjectAtScreenCenter)
+(JNIEnv *, jclass, jlong native_application) {
+  native(native_application)->SpawnObjectAtScreenCenter();
+}
+
 JNI_METHOD(jboolean, hasDetectedPlanes)
 (JNIEnv *, jclass, jlong native_application) {
   return static_cast<jboolean>(
