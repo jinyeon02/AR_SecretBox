@@ -52,6 +52,7 @@ void Texture::UpdateWithDepthImageOnGlThread(const ArSession& session,
     ArImage_release(depth_image);
     abort();
     return;
+
   }
 
   const uint8_t* depth_data = nullptr;

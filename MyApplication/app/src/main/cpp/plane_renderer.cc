@@ -19,168 +19,184 @@
 #include "util.h"
 
 namespace hello_ar {
-namespace {
-constexpr char kVertexShaderFilename[] = "shaders/plane.vert";
-constexpr char kFragmentShaderFilename[] = "shaders/plane.frag";
-}  // namespace
+    namespace {
+        constexpr char kVertexShaderFilename[] = "shaders/plane.vert";
+        constexpr char kFragmentShaderFilename[] = "shaders/plane.frag";
+    }  // namespace
 
-void PlaneRenderer::InitializeGlContent(AAssetManager* asset_manager) {
-  shader_program_ = util::CreateProgram(kVertexShaderFilename,
-                                        kFragmentShaderFilename, asset_manager);
-  if (!shader_program_) {
-    LOGE("Could not create program.");
-  }
+    void PlaneRenderer::InitializeGlContent(AAssetManager* asset_manager) {
+        shader_program_ = util::CreateProgram(kVertexShaderFilename,
+                                              kFragmentShaderFilename, asset_manager);
+        if (!shader_program_) {
+            LOGE("Could not create program.");
+        }
 
-  uniform_mvp_mat_ = glGetUniformLocation(shader_program_, "mvp");
-  uniform_texture_ = glGetUniformLocation(shader_program_, "texture");
-  uniform_model_mat_ = glGetUniformLocation(shader_program_, "model_mat");
-  uniform_normal_vec_ = glGetUniformLocation(shader_program_, "normal");
-  attri_vertices_ = glGetAttribLocation(shader_program_, "vertex");
+        uniform_mvp_mat_ = glGetUniformLocation(shader_program_, "mvp");
+        uniform_texture_ = glGetUniformLocation(shader_program_, "texture");
+        uniform_model_mat_ = glGetUniformLocation(shader_program_, "model_mat");
+        uniform_normal_vec_ = glGetUniformLocation(shader_program_, "normal");
+        attri_vertices_ = glGetAttribLocation(shader_program_, "vertex");
 
-  glGenTextures(1, &texture_id_);
-  glBindTexture(GL_TEXTURE_2D, texture_id_);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                  GL_LINEAR_MIPMAP_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glGenTextures(1, &texture_id_);
+        glBindTexture(GL_TEXTURE_2D, texture_id_);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                        GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-  if (!util::LoadPngFromAssetManager(GL_TEXTURE_2D, "models/trigrid.png")) {
-    LOGE("Could not load png texture for planes.");
-  }
+        // ===== 수정된 부분: 파일 로드 실패해도 계속 진행 =====
+        if (!util::LoadPngFromAssetManager(GL_TEXTURE_2D, "models/trigrid.png")) {
+            LOGE("Could not load png texture for planes. Using default white texture.");
 
-  glGenerateMipmap(GL_TEXTURE_2D);
+            // 기본 흰색 텍스처 생성 (2x2 픽셀)
+            unsigned char default_texture[] = {
+                    255, 255, 255, 255,  // 흰색 픽셀 1
+                    255, 255, 255, 255,  // 흰색 픽셀 2
+                    255, 255, 255, 255,  // 흰색 픽셀 3
+                    255, 255, 255, 255   // 흰색 픽셀 4
+            };
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 2, 2, 0, GL_RGBA, GL_UNSIGNED_BYTE, default_texture);
+        }
+        // ===== 수정 끝 =====
 
-  glBindTexture(GL_TEXTURE_2D, 0);
+        glGenerateMipmap(GL_TEXTURE_2D);
 
-  util::CheckGlError("plane_renderer::InitializeGlContent()");
-}
+        glBindTexture(GL_TEXTURE_2D, 0);
 
-void PlaneRenderer::Draw(const glm::mat4& projection_mat,
-                         const glm::mat4& view_mat, const ArSession& ar_session,
-                         const ArPlane& ar_plane) {
-  if (!shader_program_) {
-    LOGE("shader_program is null.");
-    return;
-  }
+        // CheckGlError를 호출하지만 크래시는 방지
+        GLenum error = glGetError();
+        if (error != GL_NO_ERROR) {
+            LOGE("plane_renderer::InitializeGlContent() glError (0x%x), but continuing...", error);
+            // abort()를 호출하지 않고 계속 진행
+        }
+    }
 
-  UpdateForPlane(ar_session, ar_plane);
+    void PlaneRenderer::Draw(const glm::mat4& projection_mat,
+                             const glm::mat4& view_mat, const ArSession& ar_session,
+                             const ArPlane& ar_plane) {
+        if (!shader_program_) {
+            LOGE("shader_program is null.");
+            return;
+        }
 
-  glUseProgram(shader_program_);
-  glDepthMask(GL_FALSE);
+        UpdateForPlane(ar_session, ar_plane);
 
-  glActiveTexture(GL_TEXTURE0);
-  glUniform1i(uniform_texture_, 0);
-  glBindTexture(GL_TEXTURE_2D, texture_id_);
+        glUseProgram(shader_program_);
+        glDepthMask(GL_FALSE);
 
-  // Compose final mvp matrix for this plane renderer.
-  glUniformMatrix4fv(uniform_mvp_mat_, 1, GL_FALSE,
-                     glm::value_ptr(projection_mat * view_mat * model_mat_));
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(uniform_texture_, 0);
+        glBindTexture(GL_TEXTURE_2D, texture_id_);
 
-  glUniformMatrix4fv(uniform_model_mat_, 1, GL_FALSE,
-                     glm::value_ptr(model_mat_));
-  glUniform3f(uniform_normal_vec_, normal_vec_.x, normal_vec_.y, normal_vec_.z);
+        // Compose final mvp matrix for this plane renderer.
+        glUniformMatrix4fv(uniform_mvp_mat_, 1, GL_FALSE,
+                           glm::value_ptr(projection_mat * view_mat * model_mat_));
 
-  glEnableVertexAttribArray(attri_vertices_);
-  glVertexAttribPointer(attri_vertices_, 3, GL_FLOAT, GL_FALSE, 0,
-                        vertices_.data());
+        glUniformMatrix4fv(uniform_model_mat_, 1, GL_FALSE,
+                           glm::value_ptr(model_mat_));
+        glUniform3f(uniform_normal_vec_, normal_vec_.x, normal_vec_.y, normal_vec_.z);
 
-  glEnable(GL_BLEND);
+        glEnableVertexAttribArray(attri_vertices_);
+        glVertexAttribPointer(attri_vertices_, 3, GL_FLOAT, GL_FALSE, 0,
+                              vertices_.data());
 
-  // Textures are loaded with premultiplied alpha
-  // (https://developer.android.com/reference/android/graphics/BitmapFactory.Options#inPremultiplied),
-  // so we use the premultiplied alpha blend factors.
-  glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
-  glDrawElements(GL_TRIANGLES, triangles_.size(), GL_UNSIGNED_SHORT,
-                 triangles_.data());
+        glEnable(GL_BLEND);
 
-  glDisable(GL_BLEND);
-  glUseProgram(0);
-  glDepthMask(GL_TRUE);
-  util::CheckGlError("plane_renderer::Draw()");
-}
+        // Textures are loaded with premultiplied alpha
+        // (https://developer.android.com/reference/android/graphics/BitmapFactory.Options#inPremultiplied),
+        // so we use the premultiplied alpha blend factors.
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        glDrawElements(GL_TRIANGLES, triangles_.size(), GL_UNSIGNED_SHORT,
+                       triangles_.data());
 
-void PlaneRenderer::UpdateForPlane(const ArSession& ar_session,
-                                   const ArPlane& ar_plane) {
-  // The following code generates a triangle mesh filling a convex polygon,
-  // including a feathered edge for blending.
-  //
-  // The indices shown in the diagram are used in comments below.
-  // _______________     0_______________1
-  // |             |      |4___________5|
-  // |             |      | |         | |
-  // |             | =>   | |         | |
-  // |             |      | |         | |
-  // |             |      |7-----------6|
-  // ---------------     3---------------2
+        glDisable(GL_BLEND);
+        glUseProgram(0);
+        glDepthMask(GL_TRUE);
+        util::CheckGlError("plane_renderer::Draw()");
+    }
 
-  vertices_.clear();
-  triangles_.clear();
+    void PlaneRenderer::UpdateForPlane(const ArSession& ar_session,
+                                       const ArPlane& ar_plane) {
+        // The following code generates a triangle mesh filling a convex polygon,
+        // including a feathered edge for blending.
+        //
+        // The indices shown in the diagram are used in comments below.
+        // _______________     0_______________1
+        // |             |      |4___________5|
+        // |             |      | |         | |
+        // |             | =>   | |         | |
+        // |             |      | |         | |
+        // |             |      |7-----------6|
+        // ---------------     3---------------2
 
-  int32_t polygon_length;
-  ArPlane_getPolygonSize(&ar_session, &ar_plane, &polygon_length);
+        vertices_.clear();
+        triangles_.clear();
 
-  if (polygon_length == 0) {
-    LOGE("PlaneRenderer::UpdatePlane, no valid plane polygon is found");
-    return;
-  }
+        int32_t polygon_length;
+        ArPlane_getPolygonSize(&ar_session, &ar_plane, &polygon_length);
 
-  const int32_t vertices_size = polygon_length / 2;
-  std::vector<glm::vec2> raw_vertices(vertices_size);
-  ArPlane_getPolygon(&ar_session, &ar_plane,
-                     glm::value_ptr(raw_vertices.front()));
+        if (polygon_length == 0) {
+            LOGE("PlaneRenderer::UpdatePlane, no valid plane polygon is found");
+            return;
+        }
 
-  // Fill vertex 0 to 3. Note that the vertex.xy are used for x and z
-  // position. vertex.z is used for alpha. The outer polygon's alpha
-  // is 0.
-  for (int32_t i = 0; i < vertices_size; ++i) {
-    vertices_.push_back(glm::vec3(raw_vertices[i].x, raw_vertices[i].y, 0.0f));
-  }
+        const int32_t vertices_size = polygon_length / 2;
+        std::vector<glm::vec2> raw_vertices(vertices_size);
+        ArPlane_getPolygon(&ar_session, &ar_plane,
+                           glm::value_ptr(raw_vertices.front()));
 
-  util::ScopedArPose scopedArPose(&ar_session);
-  ArPlane_getCenterPose(&ar_session, &ar_plane, scopedArPose.GetArPose());
-  ArPose_getMatrix(&ar_session, scopedArPose.GetArPose(),
-                   glm::value_ptr(model_mat_));
-  normal_vec_ = util::GetPlaneNormal(ar_session, *scopedArPose.GetArPose());
+        // Fill vertex 0 to 3. Note that the vertex.xy are used for x and z
+        // position. vertex.z is used for alpha. The outer polygon's alpha
+        // is 0.
+        for (int32_t i = 0; i < vertices_size; ++i) {
+            vertices_.push_back(glm::vec3(raw_vertices[i].x, raw_vertices[i].y, 0.0f));
+        }
 
-  // Feather distance 0.2 meters.
-  const float kFeatherLength = 0.2f;
-  // Feather scale over the distance between plane center and vertices.
-  const float kFeatherScale = 0.2f;
+        util::ScopedArPose scopedArPose(&ar_session);
+        ArPlane_getCenterPose(&ar_session, &ar_plane, scopedArPose.GetArPose());
+        ArPose_getMatrix(&ar_session, scopedArPose.GetArPose(),
+                         glm::value_ptr(model_mat_));
+        normal_vec_ = util::GetPlaneNormal(ar_session, *scopedArPose.GetArPose());
 
-  // Fill vertex 4 to 7, with alpha set to 1.
-  for (int32_t i = 0; i < vertices_size; ++i) {
-    // Vector from plane center to current point.
-    glm::vec2 v = raw_vertices[i];
-    const float scale =
-        1.0f - std::min((kFeatherLength / glm::length(v)), kFeatherScale);
-    const glm::vec2 result_v = scale * v;
+        // Feather distance 0.2 meters.
+        const float kFeatherLength = 0.2f;
+        // Feather scale over the distance between plane center and vertices.
+        const float kFeatherScale = 0.2f;
 
-    vertices_.push_back(glm::vec3(result_v.x, result_v.y, 1.0f));
-  }
+        // Fill vertex 4 to 7, with alpha set to 1.
+        for (int32_t i = 0; i < vertices_size; ++i) {
+            // Vector from plane center to current point.
+            glm::vec2 v = raw_vertices[i];
+            const float scale =
+                    1.0f - std::min((kFeatherLength / glm::length(v)), kFeatherScale);
+            const glm::vec2 result_v = scale * v;
 
-  const int32_t vertices_length = vertices_.size();
-  const int32_t half_vertices_length = vertices_length / 2;
+            vertices_.push_back(glm::vec3(result_v.x, result_v.y, 1.0f));
+        }
 
-  // Generate triangle (4, 5, 6) and (4, 6, 7).
-  for (int i = half_vertices_length + 1; i < vertices_length - 1; ++i) {
-    triangles_.push_back(half_vertices_length);
-    triangles_.push_back(i);
-    triangles_.push_back(i + 1);
-  }
+        const int32_t vertices_length = vertices_.size();
+        const int32_t half_vertices_length = vertices_length / 2;
 
-  // Generate triangle (0, 1, 4), (4, 1, 5), (5, 1, 2), (5, 2, 6),
-  // (6, 2, 3), (6, 3, 7), (7, 3, 0), (7, 0, 4)
-  for (int i = 0; i < half_vertices_length; ++i) {
-    triangles_.push_back(i);
-    triangles_.push_back((i + 1) % half_vertices_length);
-    triangles_.push_back(i + half_vertices_length);
+        // Generate triangle (4, 5, 6) and (4, 6, 7).
+        for (int i = half_vertices_length + 1; i < vertices_length - 1; ++i) {
+            triangles_.push_back(half_vertices_length);
+            triangles_.push_back(i);
+            triangles_.push_back(i + 1);
+        }
 
-    triangles_.push_back(i + half_vertices_length);
-    triangles_.push_back((i + 1) % half_vertices_length);
-    triangles_.push_back((i + half_vertices_length + 1) % half_vertices_length +
-                         half_vertices_length);
-  }
-}
+        // Generate triangle (0, 1, 4), (4, 1, 5), (5, 1, 2), (5, 2, 6),
+        // (6, 2, 3), (6, 3, 7), (7, 3, 0), (7, 0, 4)
+        for (int i = 0; i < half_vertices_length; ++i) {
+            triangles_.push_back(i);
+            triangles_.push_back((i + 1) % half_vertices_length);
+            triangles_.push_back(i + half_vertices_length);
+
+            triangles_.push_back(i + half_vertices_length);
+            triangles_.push_back((i + 1) % half_vertices_length);
+            triangles_.push_back((i + half_vertices_length + 1) % half_vertices_length +
+                                 half_vertices_length);
+        }
+    }
 
 }  // namespace hello_ar
