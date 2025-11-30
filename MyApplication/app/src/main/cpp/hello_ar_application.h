@@ -90,12 +90,14 @@ class HelloArApplication {
 
   // Returns true if any planes have been detected.  Used for hiding the
   // "searching for planes" snackbar.
-  bool HasDetectedPlanes() const { return plane_count_ > 0; }
+  bool HasDetectedPlanes() const;
 
   // Returns true if depth is supported.
   bool IsDepthSupported();
 
   void OnSettingsChange(bool is_instant_placement_enabled);
+
+  size_t GetAnchorCount() const;
 
  private:
   glm::mat3 GetTextureTransformMatrix(const ArSession* session,

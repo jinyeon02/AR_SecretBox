@@ -113,6 +113,12 @@ JNI_METHOD(jboolean, hasDetectedPlanes)
       native(native_application)->HasDetectedPlanes() ? JNI_TRUE : JNI_FALSE);
 }
 
+JNI_METHOD(jlong, getAnchorCount)
+(JNIEnv *, jclass, jlong native_application) {
+    // C++ 함수를 호출하여 size_t 값을 long으로 반환합니다.
+    return static_cast<jlong>(native(native_application)->GetAnchorCount());
+}
+
 JNIEnv *GetJniEnv() {
   JNIEnv *env;
   jint result = g_vm->AttachCurrentThread(&env, nullptr);
