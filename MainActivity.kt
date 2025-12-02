@@ -129,24 +129,38 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun handleTreasureFound(modelNode: ModelNode) {
+        // 1. 중복 터치 방지
         modelNode.isTouchable = false
 
-        // 애니메이션 재생
+        // 2. 애니메이션 재생 (0번 인덱스)
         modelNode.playAnimation(animationIndex = 0, loop = false)
 
+        // 3. 랜덤 보물 데이터 생성
         val treasureId = Random.nextInt(1000, 9999)
         val treasureName = "황금 열쇠"
 
+        // 4. DB 저장
         saveTreasureToDb(treasureId, treasureName)
 
+        // 5. 결과 UI 표시
         lifecycleScope.launch {
-            delay(1000)
+            delay(1000) // 애니메이션이 실행될 시간을 줍니다 (1초)
+
             AlertDialog.Builder(this@MainActivity)
                 .setTitle("축하합니다!")
                 .setMessage("'$treasureName' (ID: $treasureId)을(를) 획득했습니다!")
                 .setPositiveButton("확인") { dialog, _ ->
                     dialog.dismiss()
+
+                    // [수정] 확인 버튼을 누르면 보물상자(와 앵커)를 제거합니다.
+                    // modelNode의 부모(AnchorNode)를 파괴하면 자식인 모델도 같이 사라집니다.
+                    modelNode.parent?.destroy()
+
+                    // (선택) 만약 보물상자를 다시 찾게 하고 싶다면 아래 주석을 해제하세요.
+                    // isTreasureSpawned = false
+                    // spawnTreasureWithDelay(3000L)
                 }
+                .setCancelable(false) // 뒤로가기나 바깥 터치로 닫히지 않게 설정 (선택)
                 .show()
         }
     }
