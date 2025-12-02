@@ -6,10 +6,14 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
+import com.google.android.filament.LightManager
 import com.google.ar.core.Pose
 import com.google.ar.core.TrackingState
 import io.github.sceneview.ar.ARSceneView
 import io.github.sceneview.ar.node.AnchorNode
+import io.github.sceneview.math.Position
+import io.github.sceneview.math.Rotation
+import io.github.sceneview.node.LightNode
 import io.github.sceneview.node.ModelNode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -26,21 +30,16 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // 1. ARSceneView 연결
         sceneView = findViewById(R.id.arSceneView)
 
-        // 바닥 점 끄기
+        // 1. 바닥 점 끄기
         sceneView.planeRenderer.isEnabled = false
 
-        // 2. [색감 문제 해결] 조명 설정
-       // 주 조명 (Main Light) - 그림자 생성용
-        sceneView.mainLightNode?.intensity = 50000f
+        // 2. [해결책] 카메라에 조명 달기 (헤드랜턴 효과)
+        // 이렇게 하면 내가 보는 방향으로 항상 빛이 나가므로 검게 보일 수가 없습니다.
+        addHeadLight()
 
-        // [수정] 간접 조명 (Indirect Light) - 반사광 및 전체 밝기 담당
-        // environment 객체 내부의 indirectLight에 접근해야 합니다.
-        sceneView.environment?.indirectLight?.intensity = 50000f
-
-        // 3. 세션 리스너 설정
+        // 3. 세션 리스너
         sceneView.onSessionResumed = { session ->
             spawnTreasureWithDelay(3000L)
         }
@@ -50,6 +49,25 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // [핵심] 카메라를 따라다니는 조명 추가 함수
+    // [수정된 함수] 카메라를 따라다니는 조명 추가
+    private fun addHeadLight() {
+        val headLight = LightNode(
+            engine = sceneView.engine,
+            type = LightManager.Type.DIRECTIONAL
+        ) {
+            // 1. [Light Builder] 조명 자체의 속성 설정 (함수 호출 방식)
+            intensity(80000f) // 밝기 설정
+        }.apply {
+            // 2. [Node] 노드의 속성 설정
+            // 빛이 비추는 방향 (카메라가 보는 방향과 같게)
+            rotation = Rotation(0.0f, 0.0f, 0.0f)
+        }
+
+        // 3. 카메라 노드에 자식으로 연결 (이 방식이 가장 안전합니다)
+        headLight.parent = sceneView.cameraNode
+    }
+
     private fun spawnTreasureWithDelay(delayMillis: Long) {
         if (isTreasureSpawned) return
 
@@ -57,14 +75,14 @@ class MainActivity : AppCompatActivity() {
             delay(delayMillis)
 
             while (sceneView.cameraNode.trackingState != TrackingState.TRACKING) {
-                Toast.makeText(this@MainActivity, "공간을 인식 중입니다... 잠시만 기다려주세요.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this@MainActivity, "공간 인식 중... 조금만 움직여주세요.", Toast.LENGTH_SHORT).show()
                 delay(1000)
             }
 
             val cameraNode = sceneView.cameraNode
             val cameraPose = cameraNode.pose ?: return@launch
 
-            // 위치 조정 (전방 0.8m, 약간 아래) - 가까이서 보기 위해 거리 단축
+            // 위치: 전방 0.8m, 바닥 쪽
             val randomX = Random.nextDouble(-0.3, 0.3).toFloat()
             val offsetPose = Pose.makeTranslation(randomX, -0.5f, -0.8f)
             val treasurePose = cameraPose.compose(offsetPose)
