@@ -7,11 +7,11 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.google.android.filament.LightManager
+import com.google.ar.core.Config
 import com.google.ar.core.Pose
 import com.google.ar.core.TrackingState
 import io.github.sceneview.ar.ARSceneView
 import io.github.sceneview.ar.node.AnchorNode
-import io.github.sceneview.math.Position
 import io.github.sceneview.math.Rotation
 import io.github.sceneview.node.LightNode
 import io.github.sceneview.node.ModelNode
@@ -35,11 +35,18 @@ class MainActivity : AppCompatActivity() {
         // 1. 바닥 점 끄기
         sceneView.planeRenderer.isEnabled = false
 
-        // 2. [해결책] 카메라에 조명 달기 (헤드랜턴 효과)
-        // 이렇게 하면 내가 보는 방향으로 항상 빛이 나가므로 검게 보일 수가 없습니다.
+        // [핵심 1] ARCore의 조명 자동 조절 기능 끄기 (이게 켜져 있으면 어둡게 나옵니다)
+        sceneView.configureSession { session, config ->
+            config.lightEstimationMode = Config.LightEstimationMode.DISABLED
+        }
+
+        // [핵심 2] 카메라에 '헤드랜턴' 조명 달기
+        // 환경맵이 없어도 내가 보는 방향으로 항상 빛을 쏘기 때문에 검게 나올 수가 없습니다.
         addHeadLight()
 
-        // 3. 세션 리스너
+        // 3. 기존 태양광(Main Light)도 밝게 설정
+        sceneView.mainLightNode?.intensity = 100000f
+
         sceneView.onSessionResumed = { session ->
             spawnTreasureWithDelay(3000L)
         }
@@ -49,23 +56,27 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // [핵심] 카메라를 따라다니는 조명 추가 함수
-    // [수정된 함수] 카메라를 따라다니는 조명 추가
+    // 카메라를 따라다니는 강력한 조명을 추가하는 함수
     private fun addHeadLight() {
+        // LightNode 생성 (빌더 패턴 사용)
         val headLight = LightNode(
             engine = sceneView.engine,
             type = LightManager.Type.DIRECTIONAL
         ) {
-            // 1. [Light Builder] 조명 자체의 속성 설정 (함수 호출 방식)
-            intensity(80000f) // 밝기 설정
-        }.apply {
-            // 2. [Node] 노드의 속성 설정
-            // 빛이 비추는 방향 (카메라가 보는 방향과 같게)
-            rotation = Rotation(0.0f, 0.0f, 0.0f)
+            // 조명 자체 속성 설정
+            intensity(120000f) // 빛 강도 (아주 밝게 설정)
+            color(1.0f, 1.0f, 1.0f) // 흰색 빛
+            direction(0.0f, 0.0f, -1.0f) // 빛의 방향 (앞쪽으로)
         }
 
-        // 3. 카메라 노드에 자식으로 연결 (이 방식이 가장 안전합니다)
+        // 조명 노드 위치/회전 설정
+        headLight.rotation = Rotation(0.0f, 0.0f, 0.0f)
+
+        // [중요] 카메라 노드에 자식으로 붙임 -> 카메라가 움직이면 조명도 따라감
+        // addChildNode 대신 parent 속성 사용 (호환성)
         headLight.parent = sceneView.cameraNode
+        // 만약 parent 설정이 안 먹히면 아래 줄 사용:
+        // sceneView.cameraNode.addChildNode(headLight)
     }
 
     private fun spawnTreasureWithDelay(delayMillis: Long) {
@@ -74,6 +85,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             delay(delayMillis)
 
+            // 트래킹 대기
             while (sceneView.cameraNode.trackingState != TrackingState.TRACKING) {
                 Toast.makeText(this@MainActivity, "공간 인식 중... 조금만 움직여주세요.", Toast.LENGTH_SHORT).show()
                 delay(1000)
@@ -82,7 +94,7 @@ class MainActivity : AppCompatActivity() {
             val cameraNode = sceneView.cameraNode
             val cameraPose = cameraNode.pose ?: return@launch
 
-            // 위치: 전방 0.8m, 바닥 쪽
+            // 위치: 전방 0.8m
             val randomX = Random.nextDouble(-0.3, 0.3).toFloat()
             val offsetPose = Pose.makeTranslation(randomX, -0.5f, -0.8f)
             val treasurePose = cameraPose.compose(offsetPose)
@@ -94,7 +106,10 @@ class MainActivity : AppCompatActivity() {
                 modelInstance = sceneView.modelLoader.createModelInstance("treasure_chest.glb"),
                 scaleToUnits = 0.5f
             ).apply {
-                stopAnimation(0)
+                // 애니메이션 초기화 (0번 프레임에서 멈춤)
+                // 파라미터 없이 호출하거나, 0을 넣어보세요. (버전마다 다를 수 있음)
+                try { stopAnimation(0) } catch (e: Exception) { }
+
                 isTouchable = true
 
                 onSingleTapConfirmed = {
@@ -104,6 +119,8 @@ class MainActivity : AppCompatActivity() {
             }
 
             modelNode.parent = anchorNode
+
+            // 안전하게 노드 추가
             sceneView.addChildNode(anchorNode)
 
             isTreasureSpawned = true
@@ -113,6 +130,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun handleTreasureFound(modelNode: ModelNode) {
         modelNode.isTouchable = false
+
+        // 애니메이션 재생
         modelNode.playAnimation(animationIndex = 0, loop = false)
 
         val treasureId = Random.nextInt(1000, 9999)
