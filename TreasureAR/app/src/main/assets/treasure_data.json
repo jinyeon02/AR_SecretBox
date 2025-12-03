@@ -1,0 +1,140 @@
+{
+  "zones": [
+    {
+      "id": 1,
+      "code": "W15",
+      "name": "W15관",
+      "subZones": [
+        {
+          "id": 101,
+          "name": "강의실",
+          "imageUrl": "w15classroom",
+          "treasures": [
+            { "id": 1001, "name": "A+ 기원 부적", "imageUrl": "luck_talisman", "isCollected": false },
+            { "id": 1002, "name": "수업 1회 지각 허용권", "imageUrl": "late_pass_coupon", "isCollected": false },
+            { "id": 1007, "name": "조별과제 면죄부", "imageUrl": "group_freepass", "isCollected": false },
+            { "id": 1008, "name": "교수님 농담 이해력 +5 스크롤", "imageUrl": "joke_scroll", "isCollected": false },
+            { "id": 1013, "name": "몰래 간식 먹기 성공권", "imageUrl": "snack_pass", "isCollected": false },
+            { "id": 1014, "name": "교수님과 식사 데이트권", "imageUrl": "professor_dinner_coupon", "isCollected": false }
+          ]
+        },
+        {
+          "id": 102,
+          "name": "로비",
+          "imageUrl": "w15lobby",
+          "treasures": [
+            { "id": 1003, "name": "뒷자리 버프권", "imageUrl": "backseat_buff", "isCollected": false },
+            { "id": 1004, "name": "무료 커피 교환권(학관 전용)", "imageUrl": "free_coffee", "isCollected": false },
+            { "id": 1009, "name": "학과 굿즈 랜덤박스", "imageUrl": "dept_lootbox", "isCollected": false },
+            { "id": 1015, "name": "학과 공지 미리 알림 토큰", "imageUrl": "notice_token", "isCollected": false },
+            { "id": 1016, "name": "운 없는 날 회복 부적", "imageUrl": "badluck_charm", "isCollected": false }
+          ]
+        },
+        {
+          "id": 103,
+          "name": "화장실",
+          "imageUrl": "w15restroom",
+          "treasures": [
+            { "id": 1005, "name": "긴급 리프레시 티슈팩", "imageUrl": "refresh_tissue", "isCollected": false },
+            { "id": 1006, "name": "이성 앞에서 멘탈 +3 버프", "imageUrl": "confidence_buff", "isCollected": false },
+            { "id": 1010, "name": "잊혀진 칠판지우개 영혼", "imageUrl": "eraser_spirit", "isCollected": false },
+            { "id": 1011, "name": "급식 식단 미리보기 스크롤", "imageUrl": "lunch_scroll", "isCollected": false },
+            { "id": 1012, "name": "시험운 상승수(수능샘물 버전)", "imageUrl": "exam_luck_water", "isCollected": false },
+            { "id": 1017, "name": "급한 용무 우선순위 패스", "imageUrl": "priority_bathroom", "isCollected": false },
+            { "id": 1018, "name": "향긋한 비누 버프", "imageUrl": "soap_buff", "isCollected": false }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": 2,
+      "code": "W17",
+      "name": "W17관",
+      "subZones": [
+        {
+          "id": 201,
+          "name": "강의실",
+          "imageUrl": "w17classroom",
+          "treasures": [
+            { "id": 2001, "name": "교수님과 상담권", "imageUrl": "counseling_coupon", "isCollected": false },
+            { "id": 2002, "name": "필기 마스터의 축복(노트 복붙권)", "imageUrl": "note_blessing", "isCollected": false },
+            { "id": 2010, "name": "과제 마감 24시간 연장권", "imageUrl": "deadline_extension", "isCollected": false },
+            { "id": 2013, "name": "과제 아이디어 스파크", "imageUrl": "idea_spark", "isCollected": false },
+            { "id": 2014, "name": "발표 목소리 안정 스킬북", "imageUrl": "voice_skillbook", "isCollected": false }
+          ]
+        },
+        {
+          "id": 202,
+          "name": "로비",
+          "imageUrl": "w17lobby",
+          "treasures": [
+            { "id": 2003, "name": "무료 프린트 10장권", "imageUrl": "print_coupon", "isCollected": false },
+            { "id": 2004, "name": "학식 트레이 우선권", "imageUrl": "lunch_priority", "isCollected": false },
+            { "id": 2011, "name": "랜덤 칭찬 쿠폰(칭찬 1회 보장)", "imageUrl": "compliment_coupon", "isCollected": false },
+            { "id": 2012, "name": "도서관 자리 선점권", "imageUrl": "library_seat", "isCollected": false },
+            { "id": 2015, "name": "친구 만들기 성공률 +10 버프", "imageUrl": "friendship_buff", "isCollected": false },
+            { "id": 2016, "name": "Wi-Fi 강화 부적", "imageUrl": "wifi_charm", "isCollected": false }
+          ]
+        },
+        {
+          "id": 203,
+          "name": "화장실",
+          "imageUrl": "w17restroom",
+          "treasures": [
+            { "id": 2005, "name": "스피드 핸드드라이어 부스터", "imageUrl": "dryer_boost", "isCollected": false },
+            { "id": 2006, "name": "피곤함 -2 디버프 제거약", "imageUrl": "fatigue_cure", "isCollected": false },
+            { "id": 2017, "name": "피부 톤 +1 버프 물약", "imageUrl": "skin_buff", "isCollected": false }
+          ]
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "code": "운동장",
+      "name": "운동장",
+      "subZones": [
+        {
+          "id": 301,
+          "name": "트랙",
+          "imageUrl": "track",
+          "treasures": [
+            { "id": 3001, "name": "체력 +10 버프 음료", "imageUrl": "stamina_drink", "isCollected": false },
+            { "id": 3002, "name": "빠른 걸음 스니커즈", "imageUrl": "fast_shoes", "isCollected": false },
+            { "id": 3007, "name": "기상시간 -5분 스킬북", "imageUrl": "wake_skillbook", "isCollected": false },
+            { "id": 3008, "name": "점심시간 알람 토템", "imageUrl": "lunch_totem", "isCollected": false },
+            { "id": 3009, "name": "단체운동 프리패스", "imageUrl": "sports_freepass", "isCollected": false },
+            { "id": 3013, "name": "체력 회복 젤리", "imageUrl": "stamina_jelly", "isCollected": false },
+            { "id": 3014, "name": "속도 +3 신발끈 마법", "imageUrl": "magic_shoelace", "isCollected": false }
+          ]
+        },
+        {
+          "id": 302,
+          "name": "축구장",
+          "imageUrl": "football",
+          "treasures": [
+            { "id": 3003, "name": "공결권", "imageUrl": "attendance_pass_coupon", "isCollected": false },
+            { "id": 3004, "name": "수업 집중력 +8 헤어밴드", "imageUrl": "focus_headband", "isCollected": false },
+            { "id": 3010, "name": "시험 점수 +1~3 랜덤박스", "imageUrl": "exam_bonus_box", "isCollected": false },
+            { "id": 3015, "name": "감독님의 칭찬 포인트 +1", "imageUrl": "coach_point", "isCollected": false },
+            { "id": 3016, "name": "체력 반짝 증가 버프", "imageUrl": "spark_buff", "isCollected": false }
+          ]
+        },
+        {
+          "id": 303,
+          "name": "농구장",
+          "imageUrl": "basketball",
+          "treasures": [
+            { "id": 3005, "name": "강의 몰입력 +5 에너지볼", "imageUrl": "energy_ball", "isCollected": false },
+            { "id": 3006, "name": "과제 아이디어 포션", "imageUrl": "idea_potion", "isCollected": false },
+            { "id": 3011, "name": "팀플 궁합 증가 부적", "imageUrl": "teamplay_charm", "isCollected": false },
+            { "id": 3012, "name": "운동장 축복 동전", "imageUrl": "field_coin", "isCollected": false },
+            { "id": 3017, "name": "점프력 +5 음료", "imageUrl": "jump_drink", "isCollected": false },
+            { "id": 3018, "name": "슛 성공률 +4 스티커", "imageUrl": "shoot_sticker", "isCollected": false }
+          ]
+        }
+      ]
+    }
+  ]
+}
